@@ -68,9 +68,13 @@ private:
   double proportional_ = 0;  // proportional term of output
   double integral_ = 0;      // integral term of output
   double derivative_ = 0;    // derivative term of output
+  double feed_forward_ = 0;  // feed forward term of output
 
   // PID gains
   double Kp_ = 0, Ki_ = 0, Kd_ = 0;
+
+  // Feed forward term and arbitrary feed forward
+  double Kf_ = 0, arbFF_ = 0;
 
   // Parameters for error calc. with disconinuous input
   bool angle_error_ = false;

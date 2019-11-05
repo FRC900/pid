@@ -19,6 +19,8 @@ PidObject::PidObject() : error_(3, 0), filtered_error_(3, 0), error_deriv_(3, 0)
   node_priv.param<double>("Kp", Kp_, 1.0);
   node_priv.param<double>("Ki", Ki_, 0.0);
   node_priv.param<double>("Kd", Kd_, 0.0);
+  node_priv.param<double>("Kf", Kf_, 0.0);
+  node_priv.param<double>("arbFF", arbFF_, 0.0);
   node_priv.param<double>("upper_limit", upper_limit_, 1000.0);
   node_priv.param<double>("lower_limit", lower_limit_, -1000.0);
   node_priv.param<double>("windup_limit", windup_limit_, 1000.0);
@@ -141,11 +143,12 @@ bool PidObject::validateParameters()
 void PidObject::printParameters()
 {
   std::cout << std::endl << "PID PARAMETERS" << std::endl << "-----------------------------------------" << std::endl;
-  std::cout << "Kp: " << Kp_ << ",  Ki: " << Ki_ << ",  Kd: " << Kd_ << std::endl;
+  std::cout << "Kp: " << Kp_ << ",  Ki: " << Ki_ << ",  Kd: " << Kd_ << ", Kf: " << Kf_ << std::endl;
   if (cutoff_frequency_ == -1)  // If the cutoff frequency was not specified by the user
     std::cout << "LPF cutoff frequency: 1/4 of sampling rate" << std::endl;
   else
     std::cout << "LPF cutoff frequency: " << cutoff_frequency_ << std::endl;
+  std::cout << "arbitrary feed forward: " << arbFF_ << std::endl;
   std::cout << "pid node name: " << ros::this_node::getName() << std::endl;
   std::cout << "Name of topic from controller: " << topic_from_controller_ << std::endl;
   std::cout << "Name of topic from the plant: " << topic_from_plant_ << std::endl;
@@ -164,6 +167,8 @@ void PidObject::reconfigureCallback(pid::PidConfig& config, uint32_t level)
     getParams(Kp_, config.Kp, config.Kp_scale);
     getParams(Ki_, config.Ki, config.Ki_scale);
     getParams(Kd_, config.Kd, config.Kd_scale);
+    getParams(Kf_, config.Kf, config.Kf_scale);
+    getParams(arbFF_, config.arbFF, config.arbFF_scale);
     first_reconfig_ = false;
     return;  // Ignore the first call to reconfigure which happens at startup
   }
@@ -171,7 +176,9 @@ void PidObject::reconfigureCallback(pid::PidConfig& config, uint32_t level)
   Kp_ = config.Kp * config.Kp_scale;
   Ki_ = config.Ki * config.Ki_scale;
   Kd_ = config.Kd * config.Kd_scale;
-  ROS_INFO("Pid reconfigure request: Kp: %f, Ki: %f, Kd: %f", Kp_, Ki_, Kd_);
+  Kf_ = config.Kf * config.Kf_scale;
+  arbFF_ = config.arbFF * config.arbFF_scale;
+  ROS_INFO("Pid reconfigure request: Kp: %f, Ki: %f, Kd: %f, Kf: %f, arbFF: %f", Kp_, Ki_, Kd_, Kf_, arbFF_);
 }
 
 void PidObject::doCalcs()
@@ -290,7 +297,8 @@ void PidObject::doCalcs()
     proportional_ = Kp_ * filtered_error_.at(0);
     integral_ = Ki_ * error_integral_;
     derivative_ = Kd_ * filtered_error_deriv_.at(0);
-    control_effort_ = proportional_ + integral_ + derivative_;
+    feed_forward_ = Kf_ * setpoint_ + arbFF_;
+    control_effort_ = proportional_ + integral_ + derivative_ + feed_forward_;
 
     // Apply saturation limits
     if (control_effort_ > upper_limit_)
@@ -305,7 +313,7 @@ void PidObject::doCalcs()
       control_msg_.data = control_effort_;
       control_effort_pub_.publish(control_msg_);
       // Publish topic with
-      std::vector<double> pid_debug_vect { plant_state_, control_effort_, proportional_, integral_, derivative_};
+      std::vector<double> pid_debug_vect { plant_state_, control_effort_, proportional_, integral_, derivative_, feed_forward_};
       std_msgs::Float64MultiArray pidDebugMsg;
       pidDebugMsg.data = pid_debug_vect;
       pid_debug_pub_.publish(pidDebugMsg);
