@@ -86,9 +86,14 @@ PidObject::PidObject() : error_(3, 0), filtered_error_(3, 0), error_deriv_(3, 0)
 
 void PidObject::setpointCallback(const std_msgs::Float64& setpoint_msg)
 {
-  setpoint_ = setpoint_msg.data;
-  last_setpoint_msg_time_ = ros::Time::now();
-  new_state_or_setpt_ = true;
+  if (!isnan(setpoint_msg.data)) {
+    setpoint_ = setpoint_msg.data;
+    last_setpoint_msg_time_ = ros::Time::now();
+    new_state_or_setpt_ = true;
+  } else {
+    ROS_ERROR_STREAM("PID node: received NaN as a setpoint, ignoring and disabling!");
+    pid_enabled_ = false;
+  }
 }
 
 void PidObject::plantStateCallback(const std_msgs::Float64& state_msg)
