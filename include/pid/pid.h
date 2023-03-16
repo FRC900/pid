@@ -49,6 +49,8 @@
 
 namespace pid_ns
 {
+
+template <typename SETPOINT_MSG_TYPE>
 class PidObject
 {
 public:
@@ -64,7 +66,7 @@ private:
   void plantStateCallback(const std_msgs::Float64& state_msg);
   void printParameters();
   void reconfigureCallback(pid::PidConfig& config, uint32_t level);
-  void setpointCallback(const std_msgs::Float64& setpoint_msg);
+  void setpointCallback(const SETPOINT_MSG_TYPE& setpoint_msg);
   bool validateParameters();
 
   // Primary PID controller input variables
@@ -72,6 +74,7 @@ private:
   bool pid_enabled_ = true;          // PID is enabled to run
   bool new_state_or_setpt_ = false;  // Indicate that fresh calculations need to be run
   double setpoint_ = 0;              // desired output of plant
+  double feedforward_term_;          // used to generate feedforward component
 
   ros::Time prev_time_;
   ros::Time last_setpoint_msg_time_;

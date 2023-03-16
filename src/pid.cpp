@@ -1,9 +1,11 @@
 
 #include <pid/pid.h>
+#include <pid_velocity_msg/PIDVelocity.h>
 
 using namespace pid_ns;
 
-PidObject::PidObject() : error_(3, 0), filtered_error_(3, 0), error_deriv_(3, 0), filtered_error_deriv_(3, 0)
+template <typename SETPOINT_MSG_TYPE>
+PidObject<SETPOINT_MSG_TYPE>::PidObject() : error_(3, 0), filtered_error_(3, 0), error_deriv_(3, 0), filtered_error_deriv_(3, 0)
 {
   ros::NodeHandle node;
   ros::NodeHandle node_priv("~");
@@ -49,9 +51,9 @@ PidObject::PidObject() : error_(3, 0), filtered_error_(3, 0), error_deriv_(3, 0)
   control_effort_pub_ = node.advertise<std_msgs::Float64>(topic_from_controller_, 1);
   pid_debug_pub_ = node.advertise<std_msgs::Float64MultiArray>(pid_debug_pub_name_, 1);
 
-  ros::Subscriber plant_sub_ = node.subscribe(topic_from_plant_, 1, &PidObject::plantStateCallback, this);
-  ros::Subscriber setpoint_sub_ = node.subscribe(setpoint_topic_, 1, &PidObject::setpointCallback, this);
-  ros::Subscriber pid_enabled_sub_ = node.subscribe(pid_enable_topic_, 1, &PidObject::pidEnableCallback, this);
+  ros::Subscriber plant_sub_ = node.subscribe(topic_from_plant_, 1, &PidObject<SETPOINT_MSG_TYPE>::plantStateCallback, this);
+  ros::Subscriber setpoint_sub_ = node.subscribe(setpoint_topic_, 1, &PidObject<SETPOINT_MSG_TYPE>::setpointCallback, this);
+  ros::Subscriber pid_enabled_sub_ = node.subscribe(pid_enable_topic_, 1, &PidObject<SETPOINT_MSG_TYPE>::pidEnableCallback, this);
 
   if (!plant_sub_ || !setpoint_sub_ || !pid_enabled_sub_)
   {
@@ -63,7 +65,7 @@ PidObject::PidObject() : error_(3, 0), filtered_error_(3, 0), error_deriv_(3, 0)
   // dynamic reconfiguration
   dynamic_reconfigure::Server<pid::PidConfig> config_server;
   dynamic_reconfigure::Server<pid::PidConfig>::CallbackType f;
-  f = boost::bind(&PidObject::reconfigureCallback, this, _1, _2);
+  f = boost::bind(&PidObject<SETPOINT_MSG_TYPE>::reconfigureCallback, this, _1, _2);
   config_server.setCallback(f);
 
   // Wait for first messages
@@ -84,26 +86,40 @@ PidObject::PidObject() : error_(3, 0), filtered_error_(3, 0), error_deriv_(3, 0)
   }
 };
 
-void PidObject::setpointCallback(const std_msgs::Float64& setpoint_msg)
+template <>
+void PidObject<std_msgs::Float64>::setpointCallback(const std_msgs::Float64& setpoint_msg)
 {
   setpoint_ = setpoint_msg.data;
+  feedforward_term_ = setpoint_msg.data;
   last_setpoint_msg_time_ = ros::Time::now();
   new_state_or_setpt_ = true;
 }
 
-void PidObject::plantStateCallback(const std_msgs::Float64& state_msg)
+template <>
+void PidObject<pid_velocity_msg::PIDVelocity>::setpointCallback(const pid_velocity_msg::PIDVelocity& setpoint_msg)
+{
+  setpoint_ = setpoint_msg.position;
+  feedforward_term_ = setpoint_msg.velocity;
+  last_setpoint_msg_time_ = ros::Time::now();
+  new_state_or_setpt_ = true;
+}
+
+template <typename SETPOINT_MSG_TYPE>
+void PidObject<SETPOINT_MSG_TYPE>::plantStateCallback(const std_msgs::Float64& state_msg)
 {
   plant_state_ = state_msg.data;
 
   new_state_or_setpt_ = true;
 }
 
-void PidObject::pidEnableCallback(const std_msgs::Bool& pid_enable_msg)
+template <typename SETPOINT_MSG_TYPE>
+void PidObject<SETPOINT_MSG_TYPE>::pidEnableCallback(const std_msgs::Bool& pid_enable_msg)
 {
   pid_enabled_ = pid_enable_msg.data;
 }
 
-void PidObject::getParams(double in, double& value, double& scale)
+template <typename SETPOINT_MSG_TYPE>
+void PidObject<SETPOINT_MSG_TYPE>::getParams(double in, double& value, double& scale)
 {
   int digits = 0;
   value = in;
@@ -128,7 +144,8 @@ void PidObject::getParams(double in, double& value, double& scale)
   scale = pow(10.0, digits);
 }
 
-bool PidObject::validateParameters()
+template <typename SETPOINT_MSG_TYPE>
+bool PidObject<SETPOINT_MSG_TYPE>::validateParameters()
 {
   if (lower_limit_ > upper_limit_)
   {
@@ -140,7 +157,8 @@ bool PidObject::validateParameters()
   return true;
 }
 
-void PidObject::printParameters()
+template <typename SETPOINT_MSG_TYPE>
+void PidObject<SETPOINT_MSG_TYPE>::printParameters()
 {
   std::cout << std::endl << "PID PARAMETERS" << std::endl << "-----------------------------------------" << std::endl;
   std::cout << "Kp: " << Kp_ << ",  Ki: " << Ki_ << ",  Kd: " << Kd_ << ", Kf: " << Kf_ << std::endl;
@@ -160,7 +178,8 @@ void PidObject::printParameters()
   return;
 }
 
-void PidObject::reconfigureCallback(pid::PidConfig& config, uint32_t level)
+template <typename SETPOINT_MSG_TYPE>
+void PidObject<SETPOINT_MSG_TYPE>::reconfigureCallback(pid::PidConfig& config, uint32_t level)
 {
   if (first_reconfig_)
   {
@@ -181,7 +200,8 @@ void PidObject::reconfigureCallback(pid::PidConfig& config, uint32_t level)
   ROS_INFO("Pid reconfigure request: Kp: %f, Ki: %f, Kd: %f, Kf: %f, arbFF: %f", Kp_, Ki_, Kd_, Kf_, arbFF_);
 }
 
-void PidObject::doCalcs()
+template <typename SETPOINT_MSG_TYPE>
+void PidObject<SETPOINT_MSG_TYPE>::doCalcs()
 {
   // Do fresh calcs if knowledge of the system has changed.
   if (new_state_or_setpt_)
@@ -329,3 +349,6 @@ void PidObject::doCalcs()
 
   new_state_or_setpt_ = false;
 }
+
+template class PidObject<std_msgs::Float64>;
+template class PidObject<pid_velocity_msg::PIDVelocity>;

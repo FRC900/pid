@@ -43,7 +43,7 @@ int main(int argc, char** argv)
 {
   ros::init(argc, argv, "controller");
 
-  pid_ns::PidObject my_pid;
+  pid_ns::PidObject<std_msgs::Float64> my_pid;
 
   return 0;
 }

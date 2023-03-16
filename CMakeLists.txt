@@ -6,6 +6,7 @@ add_compile_options(-std=c++11)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   dynamic_reconfigure
+  pid_velocity_msg
 )
 find_package(Boost REQUIRED COMPONENTS system)
 
