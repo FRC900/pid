@@ -317,7 +317,7 @@ void PidObject<SETPOINT_MSG_TYPE>::doCalcs()
     proportional_ = Kp_ * filtered_error_.at(0);
     integral_ = Ki_ * error_integral_;
     derivative_ = Kd_ * filtered_error_deriv_.at(0);
-    feed_forward_ = Kf_ * setpoint_ + arbFF_;
+    feed_forward_ = Kf_ * feedforward_term_ + arbFF_;
     control_effort_ = proportional_ + integral_ + derivative_ + feed_forward_;
 
     // Apply saturation limits
