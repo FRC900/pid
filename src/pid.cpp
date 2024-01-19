@@ -69,7 +69,7 @@ PidObject<SETPOINT_MSG_TYPE>::PidObject() : error_(3, 0), filtered_error_(3, 0),
   config_server.setCallback(f);
 
   // Wait for first messages
-  while( ros::ok() && !ros::topic::waitForMessage<std_msgs::Float64>(setpoint_topic_, ros::Duration(10.)))
+  while( ros::ok() && !ros::topic::waitForMessage<SETPOINT_MSG_TYPE>(setpoint_topic_, ros::Duration(10.)))
      ROS_WARN_STREAM("Waiting for first setpoint message.");
 
   while( ros::ok() && !ros::topic::waitForMessage<std_msgs::Float64>(topic_from_plant_, ros::Duration(10.)))
