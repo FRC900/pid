@@ -51,9 +51,9 @@ PidObject<SETPOINT_MSG_TYPE>::PidObject() : error_(3, 0), filtered_error_(3, 0),
   control_effort_pub_ = node.advertise<std_msgs::Float64>(topic_from_controller_, 1);
   pid_debug_pub_ = node.advertise<std_msgs::Float64MultiArray>(pid_debug_pub_name_, 1);
 
-  ros::Subscriber plant_sub_ = node.subscribe(topic_from_plant_, 1, &PidObject<SETPOINT_MSG_TYPE>::plantStateCallback, this);
-  ros::Subscriber setpoint_sub_ = node.subscribe(setpoint_topic_, 1, &PidObject<SETPOINT_MSG_TYPE>::setpointCallback, this);
-  ros::Subscriber pid_enabled_sub_ = node.subscribe(pid_enable_topic_, 1, &PidObject<SETPOINT_MSG_TYPE>::pidEnableCallback, this);
+  ros::Subscriber plant_sub_ = node.subscribe(topic_from_plant_, 1, &PidObject<SETPOINT_MSG_TYPE>::plantStateCallback, this, ros::TransportHints().tcpNoDelay());
+  ros::Subscriber setpoint_sub_ = node.subscribe(setpoint_topic_, 1, &PidObject<SETPOINT_MSG_TYPE>::setpointCallback, this, ros::TransportHints().tcpNoDelay());
+  ros::Subscriber pid_enabled_sub_ = node.subscribe(pid_enable_topic_, 1, &PidObject<SETPOINT_MSG_TYPE>::pidEnableCallback, this, ros::TransportHints().tcpNoDelay());
 
   if (!plant_sub_ || !setpoint_sub_ || !pid_enabled_sub_)
   {
